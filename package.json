@@ -1,13 +1,18 @@
 {
   "scripts": {
-    "dev": "vite --host 0.0.0.0",
+    "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0"
+    "preview": "vite preview"
   },
+  "name": "npv-profile",
+  "version": "1.0.0",
+  "private": "true",
+  "type": "module",
   "dependencies": {
-    "@vitejs/plugin-react": "^5.0.0",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "vite": "^7.1.0"
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "vite": "^7.3.2"
   }
 }
