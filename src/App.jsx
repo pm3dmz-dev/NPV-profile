@@ -40,7 +40,7 @@ function formatPercent(value) {
 }
 
 function formatMultiple(value) {
-  return Number.isFinite(value) ? value.toFixed(2) + "x" : "—";
+  return Number.isFinite(value) ? `${value.toFixed(2)}x` : "—";
 }
 
 function npvAtRate(cashFlows, rate) {
@@ -159,14 +159,14 @@ function buildPath(data, xKey, yKey, width, height, pad, domain) {
   const yScale = (y) => height - pad.bottom - ((y - domain.yMin) / (domain.yMax - domain.yMin || 1)) * (height - pad.top - pad.bottom);
   const d = data
     .filter((row) => Number.isFinite(row[xKey]) && Number.isFinite(row[yKey]))
-    .map((row, i) => (i === 0 ? "M" : "L") + xScale(row[xKey]).toFixed(2) + "," + yScale(row[yKey]).toFixed(2))
+    .map((row, i) => `${i === 0 ? "M" : "L"}${xScale(row[xKey]).toFixed(2)},${yScale(row[yKey]).toFixed(2)}`)
     .join(" ");
   return { d, xScale, yScale };
 }
 
 function makeNpvData(cashFlows, minRate, maxRate) {
-  const lo = Math.max(-0.9, Math.round(safeNumber(minRate, -0.2) * 10) / 10);
-  const hi = Math.round(safeNumber(maxRate, 0.5) * 10) / 10;
+  const lo = Math.max(-0.9, Math.round(safeNumber(minRate, 0) * 10) / 10);
+  const hi = Math.round(safeNumber(maxRate, 0.4) * 10) / 10;
   if (lo >= hi) return [];
   const points = Math.max(260, Math.min(1000, Math.ceil(Math.abs(hi - lo) / 0.001)));
   return Array.from({ length: points }, (_, i) => {
@@ -185,7 +185,7 @@ function makeStats(cashFlows, rate) {
 function formatIrrList(irrs) {
   if (!irrs.length) return "no IRR";
   if (irrs.length === 1) return pct.format(irrs[0]);
-  return irrs.map((r) => pct.format(r)).join(", ") + " — multiple IRRs";
+  return `${irrs.map((r) => pct.format(r)).join(", ")} — multiple IRRs`;
 }
 
 function runSelfTests() {
@@ -196,7 +196,9 @@ function runSelfTests() {
   console.assert(close(presentValueCashFlows([100, 110], 0.1)[1], 100), "PV timeline test failed");
   console.assert(close(incrementalCashFlows([-100, 60], [-50, 40])[0], -50), "Incremental CF test failed");
   console.assert(pickDisplayedIncrementalIrr([-0.2, 0.1, 0.3]).value === 0.1, "Displayed incremental IRR test failed");
-  console.assert(makeNpvData([-100, 110], -0.2, 0.5).length >= 260, "Chart data density test failed");
+  console.assert(makeNpvData([-100, 110], 0, 0.4).length >= 260, "Chart data density test failed");
+  console.assert(close(makeStats([-100, 110], 0.1).npv, 0), "Stats NPV test failed");
+  console.assert(close(presentValueCashFlows([-100, 110], 0.1).reduce((a, b) => a + b, 0), 0), "PV sum equals NPV test failed");
 }
 runSelfTests();
 
@@ -217,7 +219,7 @@ function CashFlowEditor({ projectName, colorClass, presetName, cashFlows, onPres
   return (
     <div className="projectEditor">
       <div className="projectTitleRow">
-        <h3 className="cashFlowTitle"><span className={"legendDot " + colorClass} /> {projectName}</h3>
+        <h3 className="cashFlowTitle"><span className={`legendDot ${colorClass}`} /> {projectName}</h3>
         <button className="smallButton" onClick={onAddYear}>+ Cash flow</button>
       </div>
       <label className="label">
@@ -267,16 +269,16 @@ function NpvChart({ dataA, dataB, compare, selectedRate, statsA, statsB, minRate
 
   return (
     <div className="chartArea">
-      <svg viewBox={"0 0 " + width + " " + height} role="img" aria-label="NPV profile chart">
+      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="NPV profile chart">
         <rect width={width} height={height} rx="22" className="chartBg" />
         {yTicks.ticks.map((tick) => (
-          <g key={"y-" + tick}>
+          <g key={`y-${tick}`}>
             <line x1={pad.left} x2={width - pad.right} y1={yScale(tick)} y2={yScale(tick)} className="gridLine" />
             <text x={pad.left - 12} y={yScale(tick) + 4} textAnchor="end" className={tick === 0 ? "axisText strong" : "axisText"}>{currency.format(tick)}</text>
           </g>
         ))}
         {xTicks.ticks.map((tick) => (
-          <g key={"x-" + tick}>
+          <g key={`x-${tick}`}>
             <line x1={xScale(tick)} x2={xScale(tick)} y1={pad.top} y2={height - pad.bottom} className={tick === 0 ? "zeroAxisLine" : "gridLine faint"} />
             <text x={xScale(tick)} y={height - 24} textAnchor="middle" className={tick === 0 ? "axisText strong" : "axisText"}>{tick.toFixed(0)}%</text>
           </g>
@@ -302,19 +304,19 @@ function NpvChart({ dataA, dataB, compare, selectedRate, statsA, statsB, minRate
         <text x={selectedX} y={height - pad.bottom + 18} textAnchor="middle" className="selectedLabel">r</text>
         <text x={selectedX} y={height - pad.bottom + 33} textAnchor="middle" className="selectedLabel strong">{pct.format(selectedRate)}</text>
         {!compare && statsA.irrs.filter((r) => r * 100 >= domain.xMin && r * 100 <= domain.xMax).map((r, i) => (
-          <g key={"irra-" + i}>
+          <g key={`irra-${i}`}>
             <circle cx={xScale(r * 100)} cy={zeroY} r="5" className="irrDot" />
             <text x={clamp(xScale(r * 100), pad.left + 34, width - pad.right - 34)} y={zeroY - 22} textAnchor="middle" className="irrText">IRR A</text>
             <text x={clamp(xScale(r * 100), pad.left + 34, width - pad.right - 34)} y={zeroY - 7} textAnchor="middle" className="irrText strong">{pct.format(r)}</text>
           </g>
         ))}
         <text x={(pad.left + width - pad.right) / 2} y={height - 6} textAnchor="middle" className="axisTitle">Discount rate</text>
-        <text x="18" y={height / 2} transform={"rotate(-90 18 " + height / 2 + ")"} textAnchor="middle" className="axisTitle">NPV</text>
+        <text x="18" y={height / 2} transform={`rotate(-90 18 ${height / 2})`} textAnchor="middle" className="axisTitle">NPV</text>
       </svg>
-      <div className="axisInput axisInputMin" style={{ left: (pad.left / width) * 100 + "%" }}>
+      <div className="axisInput axisInputMin" style={{ left: `${(pad.left / width) * 100}%` }}>
         <label className="axisInputInlineLabel"><span>Min %</span><input type="number" step="10" value={Math.round(minRate * 100)} onChange={(e) => setMinRate(Math.round(safeNumber(e.target.value, 0) / 10) / 10)} /></label>
       </div>
-      <div className="axisInput axisInputMax" style={{ left: ((width - pad.right) / width) * 100 + "%" }}>
+      <div className="axisInput axisInputMax" style={{ left: `${((width - pad.right) / width) * 100}%` }}>
         <label className="axisInputInlineLabel"><span>Max %</span><input type="number" step="10" value={Math.round(maxRate * 100)} onChange={(e) => setMaxRate(Math.round(safeNumber(e.target.value, 40) / 10) / 10)} /></label>
       </div>
     </div>
@@ -323,26 +325,17 @@ function NpvChart({ dataA, dataB, compare, selectedRate, statsA, statsB, minRate
 
 function TimelineChart({ cashFlowsA, pvFlowsA, cashFlowsB, pvFlowsB }) {
   const width = 640;
-  const height = 210;
-  const pad = { top: 14, right: 28, bottom: 32, left: 78 };
-
+  const height = 240;
+  const pad = { top: 10, right: 24, bottom: 28, left: 76 };
   const dataA = cashFlowsA.map((cf, t) => ({ t, value: safeNumber(cf) }));
   const dataPvA = pvFlowsA.map((cf, t) => ({ t, value: safeNumber(cf) }));
   const dataB = cashFlowsB ? cashFlowsB.map((cf, t) => ({ t, value: safeNumber(cf) })) : [];
   const dataPvB = pvFlowsB ? pvFlowsB.map((cf, t) => ({ t, value: safeNumber(cf) })) : [];
-
-  const allValues = [
-    ...cashFlowsA,
-    ...pvFlowsA,
-    ...(cashFlowsB || []),
-    ...(pvFlowsB || []),
-  ].map((x) => safeNumber(x));
-
+  const allValues = [...cashFlowsA, ...pvFlowsA, ...(cashFlowsB || []), ...(pvFlowsB || [])].map((x) => safeNumber(x));
   const yTicks = makeTicks(Math.min(...allValues, 0), Math.max(...allValues, 0), 5, true);
   const xMax = Math.max(cashFlowsA.length - 1, cashFlowsB ? cashFlowsB.length - 1 : 1, 1);
   const xTicks = makeTicks(0, xMax, 6, true);
   const domain = { xMin: xTicks.min, xMax: xTicks.max, yMin: yTicks.min, yMax: yTicks.max };
-
   const pathA = buildPath(dataA, "t", "value", width, height, pad, domain);
   const pathPvA = buildPath(dataPvA, "t", "value", width, height, pad, domain);
   const pathB = buildPath(dataB, "t", "value", width, height, pad, domain);
@@ -350,10 +343,10 @@ function TimelineChart({ cashFlowsA, pvFlowsA, cashFlowsB, pvFlowsB }) {
   const zeroY = pathA.yScale(0);
 
   return (
-    <svg className="timelineSvg" viewBox={"0 0 " + width + " " + height} role="img" aria-label="Cash-flow and PV timeline chart">
+    <svg className="timelineSvg" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Cash-flow and PV timeline chart">
       <rect width={width} height={height} rx="22" className="chartBg" />
       {yTicks.ticks.map((tick) => (
-        <g key={"ty-" + tick}>
+        <g key={`ty-${tick}`}>
           <line x1={pad.left} x2={width - pad.right} y1={pathA.yScale(tick)} y2={pathA.yScale(tick)} className="gridLine" />
           <text x={pad.left - 10} y={pathA.yScale(tick) + 4} textAnchor="end" className="axisText">{currency.format(tick)}</text>
         </g>
@@ -361,17 +354,17 @@ function TimelineChart({ cashFlowsA, pvFlowsA, cashFlowsB, pvFlowsB }) {
       <line x1={pad.left} x2={width - pad.right} y1={zeroY} y2={zeroY} className="zeroLine" />
       <path d={pathA.d} className="mainLine projectAStroke" />
       <path d={pathPvA.d} className="mainLine projectAStroke dashedLine" />
-      {dataA.map((row) => <circle key={"ta-" + row.t} cx={pathA.xScale(row.t)} cy={pathA.yScale(row.value)} r="3.5" className="pointDot" />)}
+      {dataA.map((row) => <circle key={`ta-${row.t}`} cx={pathA.xScale(row.t)} cy={pathA.yScale(row.value)} r="3.5" className="pointDot" />)}
       {cashFlowsB && <path d={pathB.d} className="mainLine projectBStroke" />}
       {pvFlowsB && <path d={pathPvB.d} className="mainLine projectBStroke dashedLine" />}
-      {cashFlowsB && dataB.map((row) => <circle key={"tb-" + row.t} cx={pathA.xScale(row.t)} cy={pathA.yScale(row.value)} r="3.5" className="pointDotB" />)}
+      {cashFlowsB && dataB.map((row) => <circle key={`tb-${row.t}`} cx={pathA.xScale(row.t)} cy={pathA.yScale(row.value)} r="3.5" className="pointDotB" />)}
       <text x={(pad.left + width - pad.right) / 2} y={height - 8} textAnchor="middle" className="axisTitle">Period</text>
     </svg>
   );
 }
 
 function presetTeachingNote(presetName, stats, projectLabel) {
-  const outcome = projectLabel + " currently has NPV " + formatCurrency(stats.npv) + ", IRR " + formatIrrList(stats.irrs) + ", and Multiple of Money " + formatMultiple(stats.multiple) + ".";
+  const outcome = `${projectLabel} currently has NPV ${formatCurrency(stats.npv)}, IRR ${formatIrrList(stats.irrs)}, and Multiple of Money ${formatMultiple(stats.multiple)}.`;
   const notes = {
     Base: ["Base project", "A standard investment example: a large up-front cash investment followed by operating cash returns.", "This is the cleanest case for comparing NPV and IRR. The NPV profile is downward sloping and the IRR is unique.", "For conventional investments, IRR is a useful summary, but NPV remains the value criterion."],
     "Long-lived project": ["Long-lived project", "A larger, longer-duration investment with cash flows spread farther into the future.", "Because value arrives later, the project is more sensitive to the discount rate.", "Long-horizon projects can look attractive on cash returned, but value depends strongly on the opportunity cost of capital."],
@@ -413,96 +406,99 @@ function TeachingNotes({ compare, presetNameA, presetNameB, statsA, statsB, sele
   );
 }
 
-const CSS = [
-  "*{box-sizing:border-box}",
-  "body{margin:0}",
-  ".appShell{min-height:100vh;background:#f8fafc;color:#0f172a;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}",
-  ".container{width:min(1500px,calc(100vw - 16px));margin:0 auto;padding:8px 0 10px}",
-  ".header{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin-bottom:8px}",
-  ".eyebrow{margin:0 0 4px;color:#64748b;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}",
-  "h1{margin:0;font-size:clamp(28px,3vw,38px);line-height:1.02;letter-spacing:-.04em}",
-  ".subtitle{max-width:760px;margin:6px 0 0;color:#475569;font-size:14px;line-height:1.35}",
-  ".actions{display:flex;gap:10px;flex-wrap:wrap}",
-  "button,select{font:inherit}",
-  "button{border:0;cursor:pointer}",
-  ".btnPrimary,.btnSecondary{display:inline-flex;align-items:center;gap:8px;border-radius:14px;padding:8px 12px;font-size:13px;font-weight:700}",
-  ".btnPrimary{background:#0f172a;color:white}",
-  ".btnSecondary{background:white;color:#0f172a;border:1px solid #e2e8f0}",
-  ".layout{display:grid;grid-template-columns:clamp(180px,15vw,210px) 1fr;gap:10px;align-items:start}",
-  ".card,.metricCard{background:white;border:1px solid #e2e8f0;border-radius:26px;box-shadow:0 1px 2px rgba(15,23,42,.06)}",
-  ".card{padding:8px}",
-  ".mainPanel .card{height:max-content;align-self:start}",
-  ".sectionTitle{margin:0 0 4px;font-size:15px;font-weight:800}",
-  ".label{display:block;color:#334155;font-size:12px;font-weight:700;margin-bottom:5px}",
-  "input,select{width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:6px 8px;margin-top:4px;font-size:13px;color:#0f172a;background:white}",
-  "input[type=range]{padding:0;border:0;margin-top:10px;accent-color:#0f172a}",
-  ".rateRow{display:grid;grid-template-columns:1fr 70px;gap:8px;align-items:end}",
-  ".sliderLabels{display:flex;justify-content:space-between;color:#64748b;font-size:12px;margin:2px 0 8px}",
-  ".toggleRow{display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid #e2e8f0;border-radius:12px;padding:7px 8px;margin-bottom:8px;background:#f8fafc;font-size:12px;font-weight:800}",
-  ".toggleRow input{width:auto;margin:0}",
-  ".projectEditor{border-top:1px solid #e2e8f0;padding-top:8px;margin-top:8px}",
-  ".projectEditor:first-of-type{border-top:0;padding-top:0}",
-  ".projectTitleRow{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}",
-  ".cashFlowTitle{margin:0;font-size:14px;font-weight:800;display:inline-flex;align-items:center;gap:6px}",
-  ".legendDot{width:10px;height:10px;border-radius:999px;display:inline-block}",
-  ".blueDot{background:#2563eb}",
-  ".redDot{background:#dc2626}",
-  ".smallButton{display:inline-flex;align-items:center;background:#f1f5f9;color:#0f172a;border-radius:10px;padding:6px 7px;font-size:12px;font-weight:800}",
-  ".customHint{margin:-3px 0 8px;color:#64748b;font-size:11px;line-height:1.3}",
-  ".flowList{overflow:visible;padding-right:3px;display:grid;gap:6px}",
-  ".flowRow{display:grid;grid-template-columns:42px 1fr 26px;gap:5px;align-items:center}",
-  ".periodTag{background:#f1f5f9;border-radius:10px;padding:6px 3px;text-align:center;font-size:11px;font-weight:800}",
-  ".deleteButton{border-radius:10px;padding:5px 0;background:white;color:#64748b}",
-  ".deleteButton:disabled{opacity:.35;cursor:not-allowed}",
-  ".mainPanel{display:grid;gap:8px;min-width:0;align-content:start;align-items:start}",
-  ".mainPanel>*{width:100%;align-self:start}",
-  ".metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;align-items:start;align-content:start}",
-  ".metricCard{padding:7px 10px;border-radius:18px;height:max-content;align-self:start}",
-  ".metricTitle{margin:0;color:#64748b;font-size:11px;font-weight:800}",
-  ".metricValue{margin:3px 0 0;font-size:18px;line-height:1.05;font-weight:850;letter-spacing:-.03em;word-break:break-word}",
-  ".metricMultiple{font-size:10px;font-weight:750;letter-spacing:0;color:#64748b;white-space:nowrap}",
-  ".metricSub{margin:2px 0 0;color:#64748b;font-size:10px}",
-  ".chartSub{color:#64748b;font-size:11px;margin:1px 0 0;line-height:1.15}",
-  ".chartArea{position:relative;width:100%;padding-bottom:22px;margin-top:-4px;line-height:0}",
-  ".chartArea svg,.timelineSvg{display:block;width:100%;height:auto}",
-  ".mainChartCard{height:max-content;align-self:start;overflow:visible}",
-  ".timelineSvg{max-height:220px}",
-  ".axisInput{position:absolute;bottom:-2px;transform:translateX(-50%);z-index:2}",
-  ".axisInputInlineLabel{display:flex;align-items:center;gap:6px;color:#334155;font-size:10px;font-weight:800;white-space:nowrap}",
-  ".axisInputInlineLabel span{flex:0 0 auto}",
-  ".axisInputInlineLabel input{width:56px;text-align:center;padding:4px 5px;margin-top:0;font-size:11px}",
-  ".axisInputMin{transform:translateX(-38%)}",
-  ".axisInputMax{transform:translateX(-62%)}",
-  ".chartBg{fill:#fff}",
-  ".gridLine{stroke:#e2e8f0;stroke-width:1}",
-  ".faint{opacity:.55}",
-  ".zeroAxisLine{stroke:#cbd5e1;stroke-width:1.35}",
-  ".zeroLine{stroke:#0f172a;stroke-width:1.75}",
-  ".selectedProjection{stroke:#64748b;stroke-width:1.45;stroke-dasharray:5 5}",
-  ".projectBProjection{stroke:#ef4444;opacity:.72}",
-  ".irrLine{stroke:#0f172a;stroke-width:1.25;stroke-dasharray:2 5;opacity:.72}",
-  ".projectBIrrLine{stroke:#dc2626}",
-  ".mainLine{fill:none;stroke-width:3.4;stroke-linecap:round;stroke-linejoin:round}",
-  ".dashedLine{stroke-dasharray:8 6;opacity:.85}",
-  ".projectAStroke{stroke:#2563eb}",
-  ".projectBStroke{stroke:#dc2626}",
-  ".selectedDot,.pointDot,.irrDot{fill:#2563eb;stroke:#fff;stroke-width:2}",
-  ".selectedDotB,.pointDotB,.irrDotB{fill:#dc2626;stroke:#fff;stroke-width:2}",
-  ".axisText{fill:#64748b;font-size:11px}",
-  ".axisText.strong{fill:#0f172a;font-weight:800}",
-  ".axisTitle{fill:#475569;font-size:12px;font-weight:800}",
-  ".selectedLabel,.irrText{fill:#334155;font-size:11px;font-weight:700}",
-  ".selectedLabel.strong,.irrText.strong{fill:#0f172a;font-weight:850}",
-  ".projectBText{fill:#991b1b}",
-  ".lowerGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:start;align-content:start}",
-  ".timelineStack{display:grid;gap:8px;align-items:start;align-content:start}",
-  ".notes{display:grid;gap:8px;color:#334155;font-size:12px;line-height:1.35}",
-  ".notes p{margin:0}",
-  ".callout{background:#f8fafc;border-radius:14px;padding:9px;color:#0f172a;font-weight:800}",
-  "@media(max-height:850px){.subtitle{display:none}.card{padding:7px}.metricCard{padding:6px 9px}.metricValue{font-size:17px}.metricSub{font-size:9px}.timelineSvg{max-height:190px}.chartArea{padding-bottom:20px}.chartSub{display:none}}",
-  "@media(max-width:1050px){.layout{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.lowerGrid{grid-template-columns:1fr}}",
-  "@media(max-width:700px){.container{width:min(100vw - 20px,1240px);padding-top:18px}.header{align-items:stretch;flex-direction:column}.metrics{grid-template-columns:1fr}.rateRow{grid-template-columns:1fr}.layout{gap:12px}}",
-].join("\n");
+const CSS = `
+*{box-sizing:border-box}
+body{margin:0}
+.appShell{min-height:100vh;background:#f8fafc;color:#0f172a;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.container{width:min(1500px,calc(100vw - 16px));margin:0 auto;padding:8px 0 10px}
+.header{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin-bottom:8px}
+.eyebrow{margin:0 0 4px;color:#64748b;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+h1{margin:0;font-size:clamp(28px,3vw,38px);line-height:1.02;letter-spacing:-.04em}
+.subtitle{max-width:760px;margin:6px 0 0;color:#475569;font-size:14px;line-height:1.35}
+.actions{display:flex;gap:10px;flex-wrap:wrap}
+button,select{font:inherit}
+button{border:0;cursor:pointer}
+.btnPrimary,.btnSecondary{display:inline-flex;align-items:center;gap:8px;border-radius:14px;padding:8px 12px;font-size:13px;font-weight:700}
+.btnPrimary{background:#0f172a;color:white}
+.btnSecondary{background:white;color:#0f172a;border:1px solid #e2e8f0}
+.layout{display:grid;grid-template-columns:clamp(180px,15vw,210px) 1fr;gap:10px;align-items:start}
+.card,.metricCard{background:white;border:1px solid #e2e8f0;border-radius:26px;box-shadow:0 1px 2px rgba(15,23,42,.06)}
+.card{padding:8px}
+.mainPanel .card{height:max-content;align-self:start}
+.sectionTitle{margin:0 0 4px;font-size:15px;font-weight:800}
+.label{display:block;color:#334155;font-size:12px;font-weight:700;margin-bottom:5px}
+input,select{width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:6px 8px;margin-top:4px;font-size:13px;color:#0f172a;background:white}
+input[type=range]{padding:0;border:0;margin-top:10px;accent-color:#0f172a}
+.sliderLabels{display:flex;justify-content:space-between;color:#64748b;font-size:12px;margin:2px 0 0}
+.chartRateControl{padding:2px 34px 0 80px;display:grid;justify-items:center}
+.chartRateInputCentered{display:flex;align-items:center;gap:6px;color:#334155;font-size:11px;font-weight:800;white-space:nowrap;margin-bottom:4px}
+.chartRateInputCentered input{width:64px;text-align:center;padding:4px 5px;margin-top:0;font-size:11px}
+.chartRateSlider{width:100%;margin:0;accent-color:#0f172a;justify-self:stretch}
+.toggleRow{display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid #e2e8f0;border-radius:12px;padding:7px 8px;margin-bottom:8px;background:#f8fafc;font-size:12px;font-weight:800}
+.toggleRow input{width:auto;margin:0}
+.projectEditor{border-top:1px solid #e2e8f0;padding-top:8px;margin-top:8px}
+.projectEditor:first-of-type{border-top:0;padding-top:0}
+.projectTitleRow{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.cashFlowTitle{margin:0;font-size:14px;font-weight:800;display:inline-flex;align-items:center;gap:6px}
+.legendDot{width:10px;height:10px;border-radius:999px;display:inline-block}
+.blueDot{background:#2563eb}
+.redDot{background:#dc2626}
+.smallButton{display:inline-flex;align-items:center;background:#f1f5f9;color:#0f172a;border-radius:10px;padding:6px 7px;font-size:12px;font-weight:800}
+.customHint{margin:-3px 0 8px;color:#64748b;font-size:11px;line-height:1.3}
+.flowList{overflow:visible;padding-right:3px;display:grid;gap:6px}
+.flowRow{display:grid;grid-template-columns:42px 1fr 26px;gap:5px;align-items:center}
+.periodTag{background:#f1f5f9;border-radius:10px;padding:6px 3px;text-align:center;font-size:11px;font-weight:800}
+.deleteButton{border-radius:10px;padding:5px 0;background:white;color:#64748b}
+.deleteButton:disabled{opacity:.35;cursor:not-allowed}
+.mainPanel{display:grid;gap:8px;min-width:0;align-content:start;align-items:start}
+.mainPanel>*{width:100%;align-self:start}
+.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;align-items:start;align-content:start}
+.metricCard{padding:7px 10px;border-radius:18px;height:max-content;align-self:start}
+.metricTitle{margin:0;color:#64748b;font-size:11px;font-weight:800}
+.metricValue{margin:3px 0 0;font-size:18px;line-height:1.05;font-weight:850;letter-spacing:-.03em;word-break:break-word}
+.metricMultiple{font-size:10px;font-weight:750;letter-spacing:0;color:#64748b;white-space:nowrap}
+.metricSub{margin:2px 0 0;color:#64748b;font-size:10px}
+.chartSub{color:#64748b;font-size:11px;margin:1px 0 0;line-height:1.15}
+.chartArea{position:relative;width:100%;padding-bottom:18px;margin-top:-4px;line-height:0}
+.chartArea svg{display:block;width:100%;height:auto}
+.mainChartCard{height:max-content;align-self:start;overflow:visible}
+.timelineSvg{display:block;width:100%;height:auto;max-height:240px}
+.timelineCard{height:auto;display:block}
+.timelineCard .chartSub{margin-bottom:4px}
+.axisInput{position:absolute;bottom:-2px;transform:translateX(-50%);z-index:2}
+.axisInputInlineLabel{display:flex;align-items:center;gap:6px;color:#334155;font-size:10px;font-weight:800;white-space:nowrap}
+.axisInputInlineLabel span{flex:0 0 auto}
+.axisInputInlineLabel input{width:56px;text-align:center;padding:4px 5px;margin-top:0;font-size:11px}
+.axisInputMin{transform:translateX(-38%)}
+.axisInputMax{transform:translateX(-62%)}
+.chartBg{fill:#fff}
+.gridLine{stroke:#e2e8f0;stroke-width:1}
+.faint{opacity:.55}
+.zeroAxisLine{stroke:#cbd5e1;stroke-width:1.35}
+.zeroLine{stroke:#0f172a;stroke-width:1.75}
+.selectedProjection{stroke:#64748b;stroke-width:1.45;stroke-dasharray:5 5}
+.projectBProjection{stroke:#ef4444;opacity:.72}
+.mainLine{fill:none;stroke-width:3.4;stroke-linecap:round;stroke-linejoin:round}
+.dashedLine{stroke-dasharray:8 6;opacity:.85}
+.projectAStroke{stroke:#2563eb}
+.projectBStroke{stroke:#dc2626}
+.selectedDot,.pointDot,.irrDot{fill:#2563eb;stroke:#fff;stroke-width:2}
+.selectedDotB,.pointDotB,.irrDotB{fill:#dc2626;stroke:#fff;stroke-width:2}
+.axisText{fill:#64748b;font-size:11px}
+.axisText.strong{fill:#0f172a;font-weight:800}
+.axisTitle{fill:#475569;font-size:12px;font-weight:800}
+.selectedLabel,.irrText{fill:#334155;font-size:11px;font-weight:700}
+.selectedLabel.strong,.irrText.strong{fill:#0f172a;font-weight:850}
+.projectBText{fill:#991b1b}
+.lowerGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:start;align-content:start}
+.timelineStack{display:grid;gap:8px;align-items:start;align-content:start}
+.notes{display:grid;gap:8px;color:#334155;font-size:12px;line-height:1.35}
+.notes p{margin:0}
+.callout{background:#f8fafc;border-radius:14px;padding:9px;color:#0f172a;font-weight:800}
+@media(max-height:850px){.subtitle{display:none}.card{padding:7px}.metricCard{padding:6px 9px}.metricValue{font-size:17px}.metricSub{font-size:9px}.chartArea{padding-bottom:16px}.chartSub{display:none}.chartRateControl{padding-top:0}}
+@media(max-width:1050px){.layout{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.lowerGrid{grid-template-columns:1fr}}
+@media(max-width:700px){.container{width:min(100vw - 20px,1240px);padding-top:18px}.header{align-items:stretch;flex-direction:column}.metrics{grid-template-columns:1fr}.layout{gap:12px}.chartRateControl{padding-left:20px;padding-right:20px}}
+`;
 
 export default function App() {
   const [presetNameA, setPresetNameA] = useState("Base");
@@ -516,9 +512,9 @@ export default function App() {
 
   const cleanFlowsA = useMemo(() => cashFlowsA.map((x) => safeNumber(x)), [cashFlowsA]);
   const cleanFlowsB = useMemo(() => cashFlowsB.map((x) => safeNumber(x)), [cashFlowsB]);
-  const sliderMin = Math.max(-0.95, Math.round(safeNumber(minRate, -0.2) * 10) / 10);
-  const sliderMax = Math.max(sliderMin + 0.1, Math.round(safeNumber(maxRate, 0.5) * 10) / 10);
-  const selectedRate = clamp(safeNumber(discountRate, 0.1), sliderMin, sliderMax);
+  const sliderMin = Math.max(-0.95, Math.round(safeNumber(minRate, 0) * 10) / 10);
+  const sliderMax = Math.max(sliderMin + 0.1, Math.round(safeNumber(maxRate, 0.4) * 10) / 10);
+  const selectedRate = clamp(safeNumber(discountRate, 0.08), sliderMin, sliderMax);
   const chartDataA = useMemo(() => makeNpvData(cleanFlowsA, minRate, maxRate), [cleanFlowsA, minRate, maxRate]);
   const chartDataB = useMemo(() => makeNpvData(cleanFlowsB, minRate, maxRate), [cleanFlowsB, minRate, maxRate]);
   const statsA = useMemo(() => makeStats(cleanFlowsA, selectedRate), [cleanFlowsA, selectedRate]);
@@ -597,17 +593,6 @@ export default function App() {
         <section className="layout">
           <aside className="card inputsCard">
             <h2 className="sectionTitle">Inputs</h2>
-            <div className="rateRow">
-              <label className="label">
-                Selected discount rate
-                <input type="range" min={sliderMin} max={sliderMax} step="0.001" value={selectedRate} onChange={(e) => setDiscountRate(safeNumber(e.target.value, 0.1))} />
-              </label>
-              <label className="label">
-                r (%)
-                <input type="number" step="0.1" value={(selectedRate * 100).toFixed(1)} onChange={(e) => setDiscountRate(safeNumber(e.target.value, 10) / 100)} />
-              </label>
-            </div>
-            <div className="sliderLabels"><span>{pct.format(sliderMin)}</span><strong>{pct.format(selectedRate)}</strong><span>{pct.format(sliderMax)}</span></div>
             <label className="toggleRow"><span>Compare two projects</span><input type="checkbox" checked={compare} onChange={(e) => setCompare(e.target.checked)} /></label>
             <CashFlowEditor projectName="Project A" colorClass="blueDot" presetName={presetNameA} cashFlows={cashFlowsA} onPresetChange={selectPresetA} onFlowChange={updateFlowA} onAddYear={addFlowA} onRemoveYear={removeFlowA} />
             {compare && <CashFlowEditor projectName="Project B" colorClass="redDot" presetName={presetNameB} cashFlows={cashFlowsB} onPresetChange={selectPresetB} onFlowChange={updateFlowB} onAddYear={addFlowB} onRemoveYear={removeFlowB} />}
@@ -615,20 +600,28 @@ export default function App() {
 
           <section className="mainPanel">
             <div className="metrics">
-              <Metric title="NPV A" value={formatCurrency(statsA.npv)} sub={"r = " + pct.format(selectedRate)} />
-              <Metric title={compare ? "NPV B" : "IRR A"} value={compare ? formatCurrency(statsB.npv) : (statsA.irrs.length ? statsA.irrs.map((r) => pct.format(r)).join(", ") : "None")} sub={compare ? "r = " + pct.format(selectedRate) : "Search range: -95% to 200%"} />
+              <Metric title="NPV A" value={formatCurrency(statsA.npv)} sub={`r = ${pct.format(selectedRate)}`} />
+              <Metric title={compare ? "NPV B" : "IRR A"} value={compare ? formatCurrency(statsB.npv) : (statsA.irrs.length ? statsA.irrs.map((r) => pct.format(r)).join(", ") : "None")} sub={compare ? `r = ${pct.format(selectedRate)}` : "Search range: -95% to 200%"} />
               <Metric title={compare ? "Δ NPV: A − B" : "Multiple of Money"} value={compare ? formatCurrency(statsA.npv - statsB.npv) : formatMultiple(statsA.multiple)} sub={compare ? "At selected rate" : "Cash Returned / Cash Invested"} />
               <Metric title={compare ? "Incremental IRR" : "Duration A"} value={compare ? (displayedIncrementalIrr.value === null ? "None" : pct.format(displayedIncrementalIrr.value)) : formatPercent(statsA.duration)} multiple={compare && displayedIncrementalIrr.multiple && displayedIncrementalIrr.value !== null} sub={compare ? "Crossover rate where NPV A = NPV B" : "% decline in NPV per 1% rate increase"} />
             </div>
 
             <div className="card mainChartCard">
               <h2 className="sectionTitle">NPV profile</h2>
-              {chartDataA.length ? <NpvChart dataA={chartDataA} dataB={chartDataB} compare={compare} selectedRate={selectedRate} statsA={statsA} statsB={statsB} minRate={minRate} maxRate={maxRate} setMinRate={setMinRate} setMaxRate={setMaxRate} /> : <p className="chartSub">Use a minimum rate greater than -100% and below the maximum rate.</p>}
+              {chartDataA.length ? (
+                <>
+                  <NpvChart dataA={chartDataA} dataB={chartDataB} compare={compare} selectedRate={selectedRate} statsA={statsA} statsB={statsB} minRate={minRate} maxRate={maxRate} setMinRate={setMinRate} setMaxRate={setMaxRate} />
+                  <div className="chartRateControl">
+                    <label className="chartRateInputCentered"><span>r (%)</span><input type="number" step="0.1" value={(selectedRate * 100).toFixed(1)} onChange={(e) => setDiscountRate(safeNumber(e.target.value, 8) / 100)} /></label>
+                    <input className="chartRateSlider" type="range" min={sliderMin} max={sliderMax} step="0.001" value={selectedRate} onChange={(e) => setDiscountRate(safeNumber(e.target.value, 0.08))} />
+                  </div>
+                </>
+              ) : <p className="chartSub">Use a minimum rate greater than -100% and below the maximum rate.</p>}
             </div>
 
             <div className="lowerGrid">
               <div className="timelineStack">
-                <div className="card"><h2 className="sectionTitle">Cash-flow & PV timeline</h2><p className="chartSub">Solid = cash flows; dashed = present values at r = {pct.format(selectedRate)}</p><TimelineChart cashFlowsA={cleanFlowsA} pvFlowsA={pvFlowsA} cashFlowsB={compare ? cleanFlowsB : null} pvFlowsB={compare ? pvFlowsB : null} /></div>
+                <div className="card timelineCard"><h2 className="sectionTitle">Cash-flow & PV timeline</h2><p className="chartSub">Solid = cash flows; dashed = present values at r = {pct.format(selectedRate)}</p><TimelineChart cashFlowsA={cleanFlowsA} pvFlowsA={pvFlowsA} cashFlowsB={compare ? cleanFlowsB : null} pvFlowsB={compare ? pvFlowsB : null} /></div>
               </div>
               <div className="card"><h2 className="sectionTitle">Teaching notes</h2><TeachingNotes compare={compare} presetNameA={presetNameA} presetNameB={presetNameB} statsA={statsA} statsB={statsB} selectedRate={selectedRate} displayedIncrementalIrr={displayedIncrementalIrr} /></div>
             </div>
